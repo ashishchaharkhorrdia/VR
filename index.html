@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>CRISIS PROTOCOL: VR Collaborative Time & Teamwork Simulator</title>
+    <meta name="description"
+        content="Immersive WebXR collaborative time-management & tactical teamwork training simulator built with A-Frame for Meta Quest 3S and desktop browsers." />
+
+    <!-- A-Frame CDN -->
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+
+    <!-- Google Fonts for futuristic UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary: #06b6d4;
+            --primary-glow: rgba(6, 182, 212, 0.45);
+            --accent: #3b82f6;
+            --critical: #ef4444;
+            --critical-glow: rgba(239, 68, 68, 0.45);
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #10b981;
+            --bg-dark: #090d16;
+            --panel-bg: rgba(15, 23, 42, 0.92);
+            --panel-border: rgba(56, 189, 248, 0.35);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Rajdhani', -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        /* 2D Desktop & VR Companion Overlay HUD */
+        #hud-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 24px;
+            transition: opacity 0.3s ease;
+        }
+
+        .interactive-ui {
+            pointer-events: auto;
+        }
+
+        /* Top Status Bar */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px var(--primary-glow);
+        }
+
+        .hud-title-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hud-scenario-badge {
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .hud-scenario-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .hud-timer-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .timer-display {
+            font-family: 'Orbitron', monospace;
+            font-size: 32px;
+            font-weight: 900;
+            color: #38bdf8;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 4px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2);
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .timer-display.urgent {
+            color: var(--critical);
+            border-color: var(--critical);
+            box-shadow: 0 0 20px var(--critical-glow), inset 0 0 15px var(--critical-glow);
+            animation: pulseAlert 1s infinite alternate;
+        }
+
+        @keyframes pulseAlert {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.05);
+            }
+        }
+
+        .hud-score-box {
+            text-align: right;
+        }
+
+        .hud-score-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+        }
+
+        .hud-score-val {
+            font-family: 'Orbitron', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            color: #facc15;
+        }
+
+        /* Main HUD Center Area */
+        .hud-body {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 14px;
+            height: calc(100% - 210px);
+        }
+
+        /* Task Panel (Left) */
+        .task-panel {
+            width: 380px;
+            max-height: 100%;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .task-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .task-list::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        .task-card {
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 4px solid var(--text-muted);
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .task-card.critical {
+            border-left-color: var(--critical);
+        }
+
+        .task-card.high {
+            border-left-color: var(--high);
+        }
+
+        .task-card.medium {
+            border-left-color: var(--medium);
+        }
+
+        .task-card.low {
+            border-left-color: var(--low);
+        }
+
+        .task-card.completed {
+            background: rgba(16, 185, 129, 0.12);
+            border-left-color: var(--low);
+            opacity: 0.65;
+        }
+
+        .task-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .task-badge {
+            font-size: 10px;
+            font-family: 'Orbitron', monospace;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .task-badge.critical {
+            background: var(--critical);
+            color: #fff;
+        }
+
+        .task-badge.high {
+            background: var(--high);
+            color: #fff;
+        }
+
+        .task-badge.medium {
+            background: var(--medium);
+            color: #000;
+        }
+
+        .task-badge.low {
+            background: var(--low);
+            color: #000;
+        }
+
+        .task-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.25;
+        }
+
+        .task-meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        /* Teamwork & Comms Panel (Right) */
+        .right-sidebar {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .team-panel,
+        .comms-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .team-member-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+
+        .member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            background: #1e293b;
+            border: 2px solid var(--primary);
+        }
+
+        .member-info {
+            flex: 1;
+        }
+
+        .member-name-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .member-role {
+            font-size: 10px;
+            color: var(--primary);
+            text-transform: uppercase;
+            font-family: 'Orbitron', monospace;
+        }
+
+        .member-task {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 170px;
+        }
+
+        .member-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+        }
+
+        .member-status-dot.busy {
+            background: #f59e0b;
+            box-shadow: 0 0 6px #f59e0b;
+        }
+
+        /* Comms Log */
+        .comms-log {
+            max-height: 120px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 11px;
+            color: #cbd5e1;
+        }
+
+        .comms-msg {
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 2px solid var(--primary);
+        }
+
+        .comms-msg.alert {
+            border-left-color: var(--critical);
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+        }
+
+        /* Floating Emergency Banner */
+        #event-toast {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: rgba(220, 38, 38, 0.92);
+            border: 2px solid #f87171;
+            border-radius: 8px;
+            padding: 12px 24px;
+            box-shadow: 0 10px 40px rgba(220, 38, 38, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+
+        #event-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .event-toast-icon {
+            font-size: 24px;
+            animation: pulseAlert 0.8s infinite alternate;
+        }
+
+        .event-toast-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        .event-toast-desc {
+            font-size: 12px;
+            color: #fee2e2;
+        }
+
+        /* INTERACTIVE ON-SCREEN CONTROLS DOCK BAR (Clickable & Touch Supported) */
+        .controls-action-dock {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #f8fafc;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: rgba(6, 182, 212, 0.25);
+            border-color: var(--primary);
+            box-shadow: 0 0 12px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        .action-btn:active {
+            transform: scale(0.96);
+        }
+
+        .action-btn .btn-key {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #38bdf8;
+        }
+
+        /* Bottom Action & Help Bar */
+        .hud-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .held-item-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        .held-badge {
+            background: rgba(56, 189, 248, 0.2);
+            border: 1px solid var(--primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .hud-controls-help {
+            display: flex;
+            gap: 12px;
+            color: var(--text-muted);
+            align-items: center;
+        }
+
+        .key-tag {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #fff;
+        }
+
+        /* Center Crosshair for Desktop */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(6, 182, 212, 0.75);
+        }
+
+        #crosshair::before {
+            top: 4px;
+            left: 0;
+            width: 10px;
+            height: 2px;
+        }
+
+        #crosshair::after {
+            top: 0;
+            left: 4px;
+            width: 2px;
+            height: 10px;
+        }
+
+        #crosshair.hovered::before,
+        #crosshair.hovered::after {
+            background: #facc15;
+            box-shadow: 0 0 8px #facc15;
+        }
+
+        /* Modal Overlay Windows (Menu, Briefing, Results, Settings) */
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 20, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-window {
+            width: 720px;
+            max-width: 92vw;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px var(--primary-glow);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-backdrop.active .modal-window {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 26px;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            text-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .modal-subtitle {
+            text-align: center;
+            color: var(--primary);
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            letter-spacing: 3px;
+            margin-top: -12px;
+        }
+
+        /* Scenario Card Grid */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 8px 0;
+        }
+
+        .scenario-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .scenario-card:hover,
+        .scenario-card.selected {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        .scenario-card-badge {
+            font-size: 10px;
+            font-family: 'Orbitron', monospace;
+            color: var(--primary);
+        }
+
+        .scenario-card-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .scenario-card-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
+            padding: 12px 26px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #06b6d4, #2563eb);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Score breakdown table */
+        .score-breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 8px 0;
+        }
+
+        .score-category-card {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        .cat-name {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .cat-score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .cat-val {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .cat-grade {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .grade-a {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .grade-b {
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+        }
+
+        .grade-c {
+            color: #facc15;
+            background: rgba(250, 204, 21, 0.15);
+        }
+
+        .grade-d {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .feedback-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 13px;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .feedback-section-title {
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .feedback-list {
+            padding-left: 18px;
+            color: #cbd5e1;
+        }
+
+        .feedback-list li {
+            margin-bottom: 4px;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            color: #fff;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 2D HUD / COMPANION UI OVERLAY -->
+    <div id="hud-layer">
+        <!-- Top Header Status -->
+        <div class="hud-header interactive-ui">
+            <div class="hud-title-box">
+                <span class="hud-scenario-badge" id="hud-badge">TACTICAL CRISIS ALPHA</span>
+                <span class="hud-scenario-name" id="hud-name">Emergency Control Room</span>
+            </div>
+
+            <div class="hud-timer-container">
+                <div class="timer-display" id="hud-timer">02:30</div>
+            </div>
+
+            <div class="hud-score-box">
+                <div class="hud-score-label">TEAM RATING</div>
+                <div class="hud-score-val" id="hud-score">0 PTS</div>
+            </div>
+        </div>
+
+        <!-- Main HUD Content (Left Tasks, Right Team & Comms) -->
+        <div class="hud-body">
+            <!-- Task Panel -->
+            <div class="task-panel interactive-ui">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>⚡</span> MISSION OBJECTIVES
+                    </div>
+                    <span style="font-size:11px; color:var(--text-muted);" id="task-completion-ratio">0/7 Done</span>
+                </div>
+                <div class="task-list" id="task-list-container">
+                    <!-- Dynamic Task Cards populated by JS -->
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Team Status & Radio Feed -->
+            <div class="right-sidebar interactive-ui">
+                <!-- Team Panel -->
+                <div class="team-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>👥</span> SQUAD MATRIX</div>
+                        <span style="font-size:10px; color:#10b981;">CONNECTED</span>
+                    </div>
+
+                    <!-- Team Members -->
+                    <div class="team-member-item">
+                        <div class="member-avatar">P1</div>
+                        <div class="member-info">
+                            <div class="member-name-row">
+                                <span>YOU (Lead)</span>
+                                <span class="member-role" id="player-role-badge">COORDINATOR</span>
+                            </div>
+                            <div class="member-task" id="player-active-task">Inspecting Operations Room</div>
+                        </div>
+                        <div class="member-status-dot" id="player-status-dot"></div>
+                    </div>
+
+                    <div class="team-member-item">
+                        <div class="member-avatar" style="border-color:#38bdf8;">AI</div>
+                        <div class="member-info">
+                            <div class="member-name-row">
+                                <span>Echo (Bot)</span>
+                                <span class="member-role" style="color:#38bdf8;">LOGISTICS</span>
+                            </div>
+                            <div class="member-task" id="bot-echo-task">Standing By for Orders</div>
+                        </div>
+                        <div class="member-status-dot" id="bot-echo-dot"></div>
+                    </div>
+
+                    <div class="team-member-item">
+                        <div class="member-avatar" style="border-color:#ec4899;">AI</div>
+                        <div class="member-info">
+                            <div class="member-name-row">
+                                <span>Nova (Bot)</span>
+                                <span class="member-role" style="color:#ec4899;">TECHNICIAN</span>
+                            </div>
+                            <div class="member-task" id="bot-nova-task">Monitoring Systems</div>
+                        </div>
+                        <div class="member-status-dot" id="bot-nova-dot"></div>
+                    </div>
+                </div>
+
+                <!-- Comms & Event Log -->
+                <div class="comms-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>📡</span> COMMS CHANNEL</div>
+                    </div>
+                    <div class="comms-log" id="comms-log-container">
+                        <div class="comms-msg">[OPS-AI] Protocol active. Team must cooperate to avert meltdown.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Banner Popup -->
+        <div id="event-toast">
+            <div class="event-toast-icon">⚠️</div>
+            <div>
+                <div class="event-toast-title" id="event-toast-title">URGENT ALERT TRIGGERED</div>
+                <div class="event-toast-desc" id="event-toast-desc">Emergency event added to priority triage!</div>
+            </div>
+        </div>
+
+        <!-- INTERACTIVE ON-SCREEN CONTROLS ACTION DOCK (For Mouse/Touch/VR Clickers) -->
+        <div class="controls-action-dock interactive-ui">
+            <button class="action-btn" onclick="triggerInteractAction()">
+                <span>✋ INTERACT / USE</span>
+                <span class="btn-key">E / CLICK</span>
+            </button>
+            <button class="action-btn" onclick="game.dropHeldItem()">
+                <span>📦 DROP ITEM</span>
+                <span class="btn-key">G</span>
+            </button>
+            <button class="action-btn" onclick="game.delegateToBot('echo')">
+                <span>⚡ DISPATCH ECHO</span>
+                <span class="btn-key">1</span>
+            </button>
+            <button class="action-btn" onclick="game.delegateToBot('nova')">
+                <span>🔧 DISPATCH NOVA</span>
+                <span class="btn-key">2</span>
+            </button>
+            <button class="action-btn" onclick="triggerSquadPing()">
+                <span>📡 TACTICAL PING</span>
+                <span class="btn-key">Q</span>
+            </button>
+            <button class="action-btn" onclick="openModal('modal-controls')">
+                <span>🎮 CONTROLS GUIDE</span>
+                <span class="btn-key">C</span>
+            </button>
+        </div>
+
+        <!-- Bottom Footer Status & Help Bar -->
+        <div class="hud-footer interactive-ui">
+            <div class="held-item-display">
+                <span>HOLDING:</span>
+                <span class="held-badge" id="held-item-text">NONE (Empty Hands)</span>
+            </div>
+
+            <div class="hud-controls-help">
+                <span><span class="key-tag">WASD</span> Move</span>
+                <span><span class="key-tag">SHIFT</span> Sprint</span>
+                <span><span class="key-tag">E / CLICK</span> Interact</span>
+                <span><span class="key-tag">G</span> Drop</span>
+                <span><span class="key-tag">1 / 2</span> Delegate</span>
+                <span><span class="key-tag">Q</span> Ping</span>
+                <span><span class="key-tag">ESC</span> Menu</span>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+                <button class="icon-btn" id="audio-toggle-btn">🔊 AUDIO: ON</button>
+                <button class="icon-btn" id="controls-btn" onclick="openModal('modal-controls')">🎮 CONTROLS</button>
+                <button class="icon-btn" id="menu-btn">⚙️ MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Center Crosshair for Desktop Mode -->
+    <div id="crosshair"></div>
+
+    <!-- MAIN MENU MODAL -->
+    <div class="modal-backdrop active" id="modal-menu">
+        <div class="modal-window">
+            <div class="modal-title">CRISIS PROTOCOL</div>
+            <div class="modal-subtitle">VR TIME & TEAMWORK SIMULATOR</div>
+
+            <p style="text-align:center; color:#cbd5e1; font-size:14px; margin-top:-6px;">
+                Coordinate responsibilities, prioritize bottlenecks, manage limited time, and execute simultaneous tasks
+                under intense emergency pressure.
+            </p>
+
+            <div style="font-family:'Orbitron', sans-serif; font-size:12px; color:var(--primary); margin-bottom:-4px;">
+                SELECT TRAINING SCENARIO:</div>
+            <div class="scenario-grid">
+                <div class="scenario-card selected" data-scenario="emergency_room"
+                    onclick="selectScenario('emergency_room')">
+                    <div class="scenario-card-badge">SCENARIO 01 (PRIMARY)</div>
+                    <div class="scenario-card-title">Emergency Control Room</div>
+                    <div class="scenario-card-desc">Restore emergency power, install missing capacitor, solve control
+                        panel harmonics, and initiate shutdown.</div>
+                </div>
+
+                <div class="scenario-card" data-scenario="warehouse_rush" onclick="selectScenario('warehouse_rush')">
+                    <div class="scenario-card-badge">SCENARIO 02</div>
+                    <div class="scenario-card-title">Warehouse Logistics Rush</div>
+                    <div class="scenario-card-desc">Sort urgent medical supply crates, calibrate conveyor routing, and
+                        dispatch cargo pods.</div>
+                </div>
+
+                <div class="scenario-card" data-scenario="space_lab" onclick="selectScenario('space_lab')">
+                    <div class="scenario-card-badge">SCENARIO 03</div>
+                    <div class="scenario-card-title">Space Station Breach</div>
+                    <div class="scenario-card-desc">Contain plasma conduits, stabilize cryo-coolant, extract
+                        bio-specimens, and broadcast telemetry.</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startBriefing()">COMMENCE BRIEFING ➔</button>
+                <button class="btn btn-secondary" onclick="openModal('modal-howtoplay')">HOW TO PLAY</button>
+                <button class="btn btn-secondary" onclick="openModal('modal-controls')">CONTROLS GUIDE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOW TO PLAY MODAL -->
+    <div class="modal-backdrop" id="modal-howtoplay">
+        <div class="modal-window">
+            <div class="modal-title">TACTICAL TEAMWORK RULES</div>
+            <div class="feedback-box">
+                <div class="feedback-section-title">⏱️ TIME & PRIORITY MATRIX</div>
+                <ul class="feedback-list">
+                    <li><strong>CRITICAL (Red):</strong> Mandatory bottleneck objectives. If delayed, disaster occurs.
+                    </li>
+                    <li><strong>HIGH (Orange):</strong> Unlocks subsequent dependent puzzle stages.</li>
+                    <li><strong>MEDIUM / LOW (Yellow/Green):</strong> High-scoring secondary targets and safety
+                        protocols.</li>
+                </ul>
+
+                <div class="feedback-section-title" style="margin-top:8px;">👥 CO-OP SQUAD DELEGATION</div>
+                <ul class="feedback-list">
+                    <li>Press <span class="key-tag">1</span> to dispatch <strong>Bot Echo</strong> (Logistics
+                        Specialist).</li>
+                    <li>Press <span class="key-tag">2</span> to dispatch <strong>Bot Nova</strong> (Technical
+                        Specialist).</li>
+                    <li>Press <span class="key-tag">Q</span> to broadcast a Tactical Squad Ping on current critical
+                        objectives.</li>
+                    <li>In VR, aim your controller ray at 3D stations or the floating taskboard and pull the trigger to
+                        issue orders.</li>
+                </ul>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="closeModal('modal-howtoplay')">GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPANDED CONTROLS GUIDE MODAL -->
+    <div class="modal-backdrop" id="modal-controls">
+        <div class="modal-window">
+            <div class="modal-title">COMPREHENSIVE CONTROLS GUIDE</div>
+            <div class="score-breakdown-grid">
+                <div class="score-category-card">
+                    <div class="cat-name" style="color:#38bdf8; font-weight:700; font-size:13px;">🖥️ DESKTOP / LAPTOP
+                        CONTROLS</div>
+                    <p style="font-size:12px; color:#cbd5e1; line-height:1.6;">
+                        <strong>W / A / S / D & Arrows:</strong> Move avatar in all 4 directions<br />
+                        <strong>Left Shift:</strong> Sprint / Speed boost (Hold or toggle)<br />
+                        <strong>Spacebar:</strong> Quick forward boost / Jump<br />
+                        <strong>Mouse Look:</strong> Aim crosshair & rotate camera<br />
+                        <strong>Left Click / E:</strong> Pick up item / Press button / Pull lever<br />
+                        <strong>G Key:</strong> Drop currently held object<br />
+                        <strong>Q Key:</strong> Broadcast Squad Ping beacon<br />
+                        <strong>1 / 2 Keys:</strong> Delegate task to Echo / Nova<br />
+                        <strong>ESC / P:</strong> Pause / Open tactical menu
+                    </p>
+                </div>
+
+                <div class="score-category-card">
+                    <div class="cat-name" style="color:#ec4899; font-weight:700; font-size:13px;">🥽 META QUEST 3S /
+                        WEBXR VR CONTROLS</div>
+                    <p style="font-size:12px; color:#cbd5e1; line-height:1.6;">
+                        <strong>Left Thumbstick:</strong> Smooth locomotion / Walk & strafe<br />
+                        <strong>Right Thumbstick:</strong> Comfort Snap Turn (45° rotation flick)<br />
+                        <strong>Index Trigger:</strong> Laser raycast click on buttons & consoles<br />
+                        <strong>Grip Squeeze:</strong> Direct physical grab & carry objects<br />
+                        <strong>A / X Button:</strong> Quick delegate order / Squad Ping<br />
+                        <strong>B / Y Button:</strong> Drop held item<br />
+                        <strong>Left Wrist HUD:</strong> Look at watch for real-time timer & score<br />
+                        <strong>Haptic Pulse:</strong> Instant vibration feedback on interactions
+                    </p>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="closeModal('modal-controls')">BACK TO SIMULATION</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BRIEFING MODAL -->
+    <div class="modal-backdrop" id="modal-briefing">
+        <div class="modal-window">
+            <div class="modal-title" id="briefing-title">MISSION BRIEFING</div>
+            <div class="modal-subtitle" id="briefing-subtitle">CRITICAL PROTOCOL ACTIVATED</div>
+
+            <p id="briefing-desc"
+                style="color:#e2e8f0; font-size:14px; line-height:1.5; background:rgba(0,0,0,0.35); padding:12px; border-radius:8px;">
+                Briefing description.
+            </p>
+
+            <div class="score-breakdown-grid">
+                <div class="score-category-card">
+                    <div class="cat-name">TIME ALLOTMENT</div>
+                    <div class="cat-val" id="briefing-time">02:30</div>
+                </div>
+                <div class="score-category-card">
+                    <div class="cat-name">REQUIRED MANDATORY TASKS</div>
+                    <div class="cat-val" id="briefing-mandatory-count">7 OBJECTIVES</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="launchScenario()">START SIMULATION ⚡</button>
+                <button class="btn btn-secondary" onclick="openModal('modal-menu')">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS & ANALYTICS MODAL -->
+    <div class="modal-backdrop" id="modal-results">
+        <div class="modal-window">
+            <div class="modal-title" id="results-title">MISSION COMPLETE</div>
+            <div class="modal-subtitle" id="results-status">OPERATIONAL REPORT GENERATED</div>
+
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; background:rgba(6,182,212,0.12); border:1px solid var(--primary); padding:12px 20px; border-radius:8px;">
+                <div>
+                    <div style="font-size:11px; color:var(--text-muted); letter-spacing:1px;">TOTAL SQUAD RATING</div>
+                    <div style="font-family:'Orbitron',monospace; font-size:28px; font-weight:900; color:#facc15;"
+                        id="res-total-score">890 / 1000</div>
+                </div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:24px; font-weight:900; padding:6px 16px; border-radius:6px;"
+                    id="res-overall-grade" class="grade-a">EXCELLENT</div>
+            </div>
+
+            <!-- 4-Factor Analytics Breakdown -->
+            <div class="score-breakdown-grid">
+                <div class="score-category-card">
+                    <div class="cat-name">TIME EFFICIENCY</div>
+                    <div class="cat-score-row">
+                        <span class="cat-val" id="res-time-score">235 / 250</span>
+                        <span class="cat-grade grade-a" id="res-time-grade">OPTIMAL</span>
+                    </div>
+                </div>
+
+                <div class="score-category-card">
+                    <div class="cat-name">TASK PRIORITIZATION</div>
+                    <div class="cat-score-row">
+                        <span class="cat-val" id="res-priority-score">230 / 250</span>
+                        <span class="cat-grade grade-a" id="res-priority-grade">FLAWLESS</span>
+                    </div>
+                </div>
+
+                <div class="score-category-card">
+                    <div class="cat-name">TEAMWORK & DELEGATION</div>
+                    <div class="cat-score-row">
+                        <span class="cat-val" id="res-team-score">190 / 200</span>
+                        <span class="cat-grade grade-a" id="res-team-grade">COORDINATED</span>
+                    </div>
+                </div>
+
+                <div class="score-category-card">
+                    <div class="cat-name">ACCURACY & PRECISION</div>
+                    <div class="cat-score-row">
+                        <span class="cat-val" id="res-eff-score">140 / 150</span>
+                        <span class="cat-grade grade-b" id="res-eff-grade">HIGH</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actionable Performance Feedback -->
+            <div class="feedback-box">
+                <div>
+                    <div class="feedback-section-title" style="color:#10b981;">✅ WHAT WENT WELL</div>
+                    <ul class="feedback-list" id="feedback-positives">
+                        <li>Critical emergency path solved rapidly.</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top:6px;">
+                    <div class="feedback-section-title" style="color:#f97316;">⚠️ AREAS FOR IMPROVEMENT</div>
+                    <ul class="feedback-list" id="feedback-negatives">
+                        <li>Low-priority tasks attempted before clearing the primary circuit breaker.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="restartCurrentScenario()">REPLAY MISSION ↻</button>
+                <button class="btn btn-secondary" onclick="openModal('modal-menu')">SCENARIO SELECT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- A-FRAME 3D VIRTUAL REALITY SCENE -->
+    <a-scene renderer="antialias: true; colorManagement: true; highRefreshRate: true; foveationLevel: 2"
+        vr-mode-ui="enabled: true" background="color: #030712" cursor="rayOrigin: mouse"
+        raycaster="objects: .clickable, .grabbable">
+        <!-- LIGHTING RIG -->
+        <a-entity id="ambient-light" light="type: ambient; color: #1e293b; intensity: 1.2"></a-entity>
+        <a-entity id="sun-light" light="type: directional; color: #38bdf8; intensity: 1.5" position="4 10 3"></a-entity>
+        <a-entity id="room-glow" light="type: point; color: #06b6d4; intensity: 2; distance: 16"
+            position="0 3.5 0"></a-entity>
+
+        <!-- PLAYER RIG (VR Controllers + Desktop Movement Support) -->
+        <a-entity id="player-rig" position="0 0 3.5" movement-controls="fly: false; speed: 0.16">
+            <!-- Head Camera -->
+            <a-entity id="head-camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: true">
+                <!-- Desktop Central Gaze Raycaster -->
+                <a-entity id="camera-raycaster" raycaster="objects: .clickable, .grabbable; far: 5"
+                    position="0 0 -0.5"></a-entity>
+
+                <!-- FPS View Carried Object Socket -->
+                <a-entity id="carried-item-socket" position="0.3 -0.25 -0.6" rotation="0 -15 0" visible="false">
+                    <a-box id="carried-item-mesh" width="0.15" height="0.15" depth="0.15" color="#38bdf8"
+                        material="emissive:#0284c7; emissiveIntensity:0.5"></a-box>
+                </a-entity>
+            </a-entity>
+
+            <!-- Meta Quest 3S Controllers -->
+            <!-- Left Hand Controller + In-VR Wrist Hologram Watch -->
+            <a-entity id="left-hand" laser-controls="hand: left"
+                raycaster="objects: .clickable, .grabbable; far: 4; lineColor: #06b6d4"
+                oculus-touch-controls="hand: left; model: true">
+                <!-- In-VR Wrist Hologram -->
+                <a-entity id="wrist-hud" position="0 0.05 0.1" rotation="-45 90 0" scale="0.65 0.65 0.65">
+                    <a-plane width="0.26" height="0.18" color="#0f172a" material="opacity: 0.92; transparent: true">
+                        <a-text id="wrist-timer" value="02:30" align="center" position="0 0.04 0.01" color="#38bdf8"
+                            width="0.85"></a-text>
+                        <a-text id="wrist-task" value="Lead: Coordinate" align="center" position="0 -0.02 0.01"
+                            color="#f8fafc" width="0.45"></a-text>
+                        <a-text id="wrist-score" value="0 PTS" align="center" position="0 -0.06 0.01" color="#facc15"
+                            width="0.55"></a-text>
+                    </a-plane>
+                </a-entity>
+            </a-entity>
+
+            <!-- Right Hand Controller (Laser Pointer & Trigger Interaction) -->
+            <a-entity id="right-hand" laser-controls="hand: right"
+                raycaster="objects: .clickable, .grabbable; far: 4; lineColor: #38bdf8"
+                oculus-touch-controls="hand: right; model: true"></a-entity>
+        </a-entity>
+
+        <!-- 3D ENVIRONMENT: EMERGENCY OPERATIONS CONTROL ROOM -->
+        <a-entity id="room-structure">
+            <!-- Sci-Fi High-Tech Floor -->
+            <a-plane position="0 0 0" rotation="-90 0 0" width="24" height="24" color="#090d16"
+                material="roughness: 0.7; metalness: 0.3"></a-plane>
+
+            <!-- Holographic Floor Rings -->
+            <a-ring position="0 0.02 0" rotation="-90 0 0" radius-inner="3" radius-outer="3.08" color="#06b6d4"
+                material="opacity: 0.4; transparent: true"></a-ring>
+            <a-ring position="0 0.02 0" rotation="-90 0 0" radius-inner="6" radius-outer="6.08" color="#3b82f6"
+                material="opacity: 0.25; transparent: true"></a-ring>
+
+            <!-- Perimeter Walls with Neon Accent Strips -->
+            <!-- Back Wall -->
+            <a-box position="0 3 -8" width="20" height="6" depth="0.4" color="#0f172a"
+                material="roughness: 0.8"></a-box>
+            <a-box position="0 5.8 -7.7" width="18" height="0.1" depth="0.1" color="#06b6d4"
+                material="emissive: #06b6d4; emissiveIntensity: 0.8"></a-box>
+
+            <!-- Front Wall with 3D CONTROLS HOLOGRAPHIC BILLBOARD -->
+            <a-box position="0 3 8" width="20" height="6" depth="0.4" color="#0f172a" material="roughness: 0.8"></a-box>
+
+            <!-- In-World 3D Holographic Controls Billboard (Visible to VR & Desktop players behind spawn) -->
+            <a-entity id="vr-controls-billboard" position="0 2.2 7.7" rotation="0 180 0">
+                <a-plane width="4.5" height="2.2" color="#0f172a" material="opacity:0.92; transparent:true">
+                    <a-plane width="4.4" height="2.1" color="#0284c7" material="wireframe:true; opacity:0.4"
+                        position="0 0 0.01"></a-plane>
+                    <a-text value="TACTICAL HARDWARE CONTROLS" align="center" position="0 0.85 0.02" color="#38bdf8"
+                        width="4.2" font="roboto"></a-text>
+
+                    <!-- Left Column: Desktop -->
+                    <a-text value="DESKTOP / MOUSE:" position="-2.0 0.5 0.02" color="#facc15" width="2.4"></a-text>
+                    <a-text
+                        value="WASD - Move | Shift - Sprint\nClick/E - Interact | G - Drop\n1 / 2 - Delegate Echo/Nova\nQ - Squad Ping | ESC - Menu"
+                        position="-2.0 0.05 0.02" color="#f8fafc" width="2.2"></a-text>
+
+                    <!-- Right Column: VR Quest 3S -->
+                    <a-text value="QUEST 3S / VR:" position="0.2 0.5 0.02" color="#ec4899" width="2.4"></a-text>
+                    <a-text
+                        value="L-Stick - Move | R-Stick - Turn\nTrigger - Laser Pointer Click\nGrip Squeeze - Grab Object\nLeft Wrist - Hologram HUD"
+                        position="0.2 0.05 0.02" color="#f8fafc" width="2.2"></a-text>
+                </a-plane>
+            </a-entity>
+
+            <!-- Left Wall -->
+            <a-box position="-10 3 0" rotation="0 90 0" width="16" height="6" depth="0.4" color="#0f172a"
+                material="roughness: 0.8"></a-box>
+            <a-box position="-9.7 5.8 0" rotation="0 90 0" width="14" height="0.1" depth="0.1" color="#3b82f6"
+                material="emissive: #3b82f6; emissiveIntensity: 0.8"></a-box>
+
+            <!-- Right Wall -->
+            <a-box position="10 3 0" rotation="0 -90 0" width="16" height="6" depth="0.4" color="#0f172a"
+                material="roughness: 0.8"></a-box>
+            <a-box position="9.7 5.8 0" rotation="0 -90 0" width="14" height="0.1" depth="0.1" color="#3b82f6"
+                material="emissive: #3b82f6; emissiveIntensity: 0.8"></a-box>
+
+            <!-- Ceiling -->
+            <a-box position="0 6 0" width="20" height="0.4" depth="16" color="#090d16"></a-box>
+            <a-plane position="0 5.75 0" rotation="90 0 0" width="8" height="8" color="#0284c7"
+                material="emissive: #0284c7; emissiveIntensity: 0.25; opacity:0.85"></a-plane>
+        </a-entity>
+
+        <!-- IN-VR 3D FLOATING TACTICAL TASKBOARD (Visible directly in VR Headset) -->
+        <a-entity id="vr-taskboard-anchor" position="0 2.2 -4.2" rotation="0 0 0">
+            <a-plane width="3.2" height="1.8" color="#0f172a"
+                material="opacity: 0.9; transparent: true; roughness: 0.2">
+                <a-plane width="3.15" height="1.75" color="#0284c7" material="wireframe: true; opacity: 0.35"
+                    position="0 0 0.01"></a-plane>
+                <a-text id="vr-board-title" value="ACTIVE SQUAD OBJECTIVES" align="center" position="0 0.72 0.02"
+                    color="#38bdf8" width="3.5" font="roboto"></a-text>
+                <a-text id="vr-board-timer" value="TIME: 02:30" align="right" position="1.3 0.72 0.02" color="#facc15"
+                    width="2.5"></a-text>
+                <a-entity id="vr-task-entries" position="0 0.45 0.02">
+                    <!-- 3D task entries dynamically updated -->
+                </a-entity>
+            </a-plane>
+        </a-entity>
+
+        <!-- DYNAMIC SCENARIO STATIONS & PROPS CONTAINER (Wiped & populated per scenario) -->
+        <a-entity id="scenario-props-container"></a-entity>
+
+        <!-- DYNAMIC SQUAD PING 3D BEACON CONTAINER -->
+        <a-entity id="ping-beacon-container" visible="false">
+            <a-cone height="0.5" radius-bottom="0.2" radius-top="0" rotation="180 0 0" position="0 2.5 0"
+                color="#facc15" material="emissive:#facc15; emissiveIntensity:0.9"
+                animation="property: position; to: 0 2.8 0; dir: alternate; dur: 500; loop: true"></a-cone>
+            <a-text value="PRIORITY TARGET" align="center" position="0 3.1 0" color="#facc15" width="3"
+                side="double"></a-text>
+        </a-entity>
+
+        <!-- AI TEAMMATE 3D AVATARS (Echo & Nova for Co-Op Simulation) -->
+        <!-- Bot Echo (Logistics Specialist) -->
+        <a-entity id="bot-echo-avatar" position="-2.5 0 -1" rotation="0 30 0">
+            <a-cylinder height="1.4" radius="0.25" position="0 0.7 0" color="#1e293b"
+                material="roughness:0.5; metalness:0.8"></a-cylinder>
+            <a-sphere radius="0.22" position="0 1.55 0" color="#38bdf8"
+                material="emissive:#0284c7; emissiveIntensity:0.5"></a-sphere>
+            <a-box width="0.28" height="0.1" depth="0.15" position="0 1.55 0.15" color="#090d16"
+                material="emissive:#38bdf8; emissiveIntensity:0.7"></a-box>
+            <a-text value="ECHO [LOGISTICS]" align="center" position="0 1.95 0" color="#38bdf8" width="2.5"
+                side="double"></a-text>
+            <a-ring rotation="-90 0 0" radius-inner="0.4" radius-outer="0.45" color="#38bdf8"
+                material="opacity:0.6"></a-ring>
+        </a-entity>
+
+        <!-- Bot Nova (Technical Specialist) -->
+        <a-entity id="bot-nova-avatar" position="2.5 0 -1" rotation="0 -30 0">
+            <a-cylinder height="1.4" radius="0.25" position="0 0.7 0" color="#1e293b"
+                material="roughness:0.5; metalness:0.8"></a-cylinder>
+            <a-sphere radius="0.22" position="0 1.55 0" color="#ec4899"
+                material="emissive:#db2777; emissiveIntensity:0.5"></a-sphere>
+            <a-box width="0.28" height="0.1" depth="0.15" position="0 1.55 0.15" color="#090d16"
+                material="emissive:#ec4899; emissiveIntensity:0.7"></a-box>
+            <a-text value="NOVA [TECHNICIAN]" align="center" position="0 1.95 0" color="#ec4899" width="2.5"
+                side="double"></a-text>
+            <a-ring rotation="-90 0 0" radius-inner="0.4" radius-outer="0.45" color="#ec4899"
+                material="opacity:0.6"></a-ring>
+        </a-entity>
+    </a-scene>
+
+    <!-- JAVASCRIPT GAME ENGINE -->
+    <script>
+        /* ==========================================================================
+           SOUND ENGINE (Web Audio API Synthesizer - Self Contained)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) this.ctx = new AudioContext();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                return this.enabled;
+            }
+
+            playTone(freq, type = 'sine', duration = 0.1, gain = 0.15) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gNode = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                    gNode.gain.setValueAtTime(gain, this.ctx.currentTime);
+                    gNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                    osc.connect(gNode);
+                    gNode.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {
+                    console.warn('Audio synthesis warning:', e);
+                }
+            }
+
+            playClick() { this.playTone(800, 'sine', 0.05, 0.1); }
+            playInteract() {
+                this.playTone(520, 'triangle', 0.12, 0.2);
+                setTimeout(() => this.playTone(780, 'sine', 0.15, 0.15), 50);
+            }
+            playPickup() {
+                this.playTone(320, 'sine', 0.08, 0.15);
+                setTimeout(() => this.playTone(480, 'sine', 0.12, 0.15), 60);
+            }
+            playDrop() {
+                this.playTone(440, 'triangle', 0.08, 0.15);
+                setTimeout(() => this.playTone(280, 'sine', 0.12, 0.15), 60);
+            }
+            playTaskComplete() {
+                if (!this.enabled) return;
+                this.init();
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    setTimeout(() => this.playTone(freq, 'sine', 0.25, 0.18), idx * 80);
+                });
+            }
+            playCriticalAlert() {
+                if (!this.enabled) return;
+                this.init();
+                this.playTone(350, 'sawtooth', 0.2, 0.25);
+                setTimeout(() => this.playTone(450, 'sawtooth', 0.25, 0.25), 180);
+            }
+            playCountdownTick() { this.playTone(1000, 'sine', 0.04, 0.1); }
+            playPing() {
+                this.playTone(900, 'sine', 0.08, 0.18);
+                setTimeout(() => this.playTone(1200, 'sine', 0.15, 0.2), 60);
+            }
+            playVictory() {
+                if (!this.enabled) return;
+                this.init();
+                [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'triangle', 0.6, 0.2), i * 120);
+                });
+            }
+            playDefeat() {
+                if (!this.enabled) return;
+                this.init();
+                [440, 392, 349, 293].forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'sawtooth', 0.35, 0.2), i * 140);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /* ==========================================================================
+           SCENARIO CONFIGURATION DATABASE
+           ========================================================================== */
+        const SCENARIOS = {
+            emergency_room: {
+                id: "emergency_room",
+                name: "Emergency Control Room",
+                badge: "Crisis Protocol",
+                timeLimit: 150, // 2:30 minutes
+                description: "The emergency facility has suffered a total system collapse! The team must recover the master keycard, unlock the blast doors, activate backup power, install the missing quantum capacitor, calibrate harmonic dials, align communication relays, and initiate emergency restore before reactor meltdown.",
+                tasks: [
+                    {
+                        id: "task_keycard",
+                        name: "1. Find Emergency Access Card",
+                        desc: "Locate the Gold Master Keycard on the logistics desk.",
+                        priority: "critical",
+                        duration: 3,
+                        mandatory: true,
+                        score: 120,
+                        stationId: "station_desk",
+                        type: "pickup_find",
+                        itemTarget: "keycard",
+                        status: "pending"
+                    },
+                    {
+                        id: "task_unlock",
+                        name: "2. Unlock Control Room Terminal",
+                        desc: "Insert Master Keycard into the Central Blast Console.",
+                        priority: "critical",
+                        duration: 4,
+                        mandatory: true,
+                        score: 150,
+                        stationId: "station_security_terminal",
+                        type: "deliver",
+                        itemNeeded: "keycard",
+                        dependsOn: ["task_keycard"],
+                        status: "locked"
+                    },
+                    {
+                        id: "task_power",
+                        name: "3. Activate Backup Power Grid",
+                        desc: "Pull the high-voltage electrical lever at the power station.",
+                        priority: "critical",
+                        duration: 4,
+                        mandatory: true,
+                        score: 160,
+                        stationId: "station_power_rack",
+                        type: "lever",
+                        dependsOn: ["task_unlock"],
+                        status: "locked"
+                    },
+                    {
+                        id: "task_component",
+                        name: "4. Install Quantum Capacitor",
+                        desc: "Retrieve Quantum Capacitor from tool storage & install in junction slot.",
+                        priority: "high",
+                        duration: 5,
+                        mandatory: true,
+                        score: 180,
+                        stationId: "station_junction",
+                        type: "deliver",
+                        itemNeeded: "capacitor",
+                        dependsOn: ["task_power"],
+                        status: "locked"
+                    },
+                    {
+                        id: "task_puzzle",
+                        name: "5. Solve Harmonic Lock Puzzle (3 Nodes)",
+                        desc: "Tune 3 harmonic frequency nodes to align reactor resonance.",
+                        priority: "high",
+                        duration: 6,
+                        mandatory: true,
+                        score: 170,
+                        stationId: "station_harmonic_puzzle",
+                        type: "toggle_multi",
+                        targetCount: 3,
+                        currentCount: 0,
+                        dependsOn: ["task_component"],
+                        status: "locked"
+                    },
+                    {
+                        id: "task_comms",
+                        name: "6. Align Comms Dish Relay",
+                        desc: "Calibrate satellite transceiver to re-establish sector uplink.",
+                        priority: "high",
+                        duration: 5,
+                        mandatory: true,
+                        score: 140,
+                        stationId: "station_comms_dish",
+                        type: "process",
+                        dependsOn: ["task_puzzle"],
+                        status: "locked"
+                    },
+                    {
+                        id: "task_restore",
+                        name: "7. Initiate Final Emergency Restore",
+                        desc: "Press the master emergency reboot switch to save the facility!",
+                        priority: "critical",
+                        duration: 4,
+                        mandatory: true,
+                        score: 200,
+                        stationId: "station_master_console",
+                        type: "button",
+                        dependsOn: ["task_comms"],
+                        status: "locked"
+                    }
+                ],
+                events: [
+                    {
+                        triggerTime: 100,
+                        name: "Coolant Line Overpressure",
+                        desc: "Pressure spike in Coolant Valve! Turn valve within 25s to avert breach.",
+                        penalty: -120,
+                        bonus: 120,
+                        timeout: 25,
+                        stationId: "station_coolant_valve",
+                        type: "dial"
+                    },
+                    {
+                        triggerTime: 45,
+                        name: "Network Router Desync",
+                        desc: "Firewall lock detected on Comms Relay! Reset security breaker.",
+                        penalty: -90,
+                        bonus: 90,
+                        timeout: 20,
+                        stationId: "station_router_breaker",
+                        type: "lever"
+                    }
+                ]
+            },
+
+            warehouse_rush: {
+                id: "warehouse_rush",
+                name: "Warehouse Logistics Rush",
+                badge: "Supply Chain Triage",
+                timeLimit: 140,
+                description: "Emergency relief convoy departs soon! Sort urgent medical cargo, calibrate robotic conveyor paths, and seal transport pods.",
+                tasks: [
+                    { id: "w_sort", name: "1. Sort 3 Medical Crates", desc: "Carry 3 yellow crates to the shipping bay.", priority: "critical", duration: 5, mandatory: true, score: 200, stationId: "station_shipping", type: "collect", targetCount: 3, currentCount: 0, status: "pending" },
+                    { id: "w_conveyor", name: "2. Reset Automated Conveyor", desc: "Pull conveyor power switch.", priority: "high", duration: 4, mandatory: true, score: 150, stationId: "station_conveyor", type: "lever", status: "pending" },
+                    { id: "w_seal", name: "3. Seal Cargo Pod Hatch", desc: "Lock pressure seal on cargo pod.", priority: "critical", duration: 5, mandatory: true, score: 200, stationId: "station_cargopod", type: "button", dependsOn: ["w_sort"], status: "locked" }
+                ],
+                events: []
+            },
+
+            space_lab: {
+                id: "space_lab",
+                name: "Space Station Breach",
+                badge: "Deep Space Operations",
+                timeLimit: 150,
+                description: "Hull integrity compromised! Suppress plasma leaks, extract biological specimens to the centrifuge, and broadcast telemetry.",
+                tasks: [
+                    { id: "s_plasma", name: "1. Suppress Plasma Vent", desc: "Deploy fire suppressor to station Beta.", priority: "critical", duration: 5, mandatory: true, score: 220, stationId: "station_plasma", type: "deliver", itemNeeded: "suppressor", status: "pending" },
+                    { id: "s_bio", name: "2. Centrifuge Cryo-Specimen", desc: "Deliver alien bio-canister to centrifuge.", priority: "high", duration: 5, mandatory: true, score: 180, stationId: "station_centrifuge", type: "deliver", itemNeeded: "specimen", status: "pending" },
+                    { id: "s_telemetry", name: "3. Broadcast Telemetry Uplink", desc: "Initiate orbital transmission.", priority: "critical", duration: 6, mandatory: true, score: 200, stationId: "station_uplink", type: "process", dependsOn: ["s_bio"], status: "locked" }
+                ],
+                events: []
+            }
+        };
+
+        /* ==========================================================================
+           CENTRAL GAME ENGINE & STATE MANAGEMENT
+           ========================================================================== */
+        class SynergyGameEngine {
+            constructor() {
+                this.selectedScenarioKey = "emergency_room";
+                this.scenario = null;
+                this.active = false;
+                this.timeRemaining = 0;
+                this.timerInterval = null;
+                this.score = 0;
+                this.heldItem = null;
+
+                // Squad State (Simulated Co-op Teammates)
+                this.team = {
+                    player: { name: "YOU", role: "COORDINATOR", activeTask: null, status: "idle" },
+                    echo: { name: "Echo", role: "LOGISTICS", activeTask: null, progress: 0, status: "idle", targetStation: null },
+                    nova: { name: "Nova", role: "TECHNICIAN", activeTask: null, progress: 0, status: "idle", targetStation: null }
+                };
+
+                // Telemetry Metrics
+                this.metrics = {
+                    startTime: 0,
+                    endTime: 0,
+                    completedTasks: 0,
+                    mandatoryCompleted: 0,
+                    criticalCompletedEarly: 0,
+                    criticalDelayed: 0,
+                    failedInteractions: 0,
+                    totalInteractions: 0,
+                    delegationCount: 0,
+                    eventsResolved: 0,
+                    eventsMissed: 0
+                };
+
+                this.activeEvent = null;
+                this.eventTimeoutTimer = null;
+                this.taskState = [];
+            }
+
+            selectScenario(key) {
+                if (SCENARIOS[key]) {
+                    this.selectedScenarioKey = key;
+                    document.querySelectorAll('.scenario-card').forEach(card => {
+                        card.classList.toggle('selected', card.dataset.scenario === key);
+                    });
+                    sound.playClick();
+                }
+            }
+
+            openBriefing() {
+                const sc = SCENARIOS[this.selectedScenarioKey];
+                document.getElementById('briefing-title').innerText = sc.name;
+                document.getElementById('briefing-subtitle').innerText = sc.badge.toUpperCase();
+                document.getElementById('briefing-desc').innerText = sc.description;
+                document.getElementById('briefing-time').innerText = this.formatTime(sc.timeLimit);
+
+                const mandatory = sc.tasks.filter(t => t.mandatory).length;
+                document.getElementById('briefing-mandatory-count').innerText = `${mandatory} MANDATORY OBJECTIVES`;
+
+                openModal('modal-briefing');
+                sound.playClick();
+            }
+
+            start() {
+                closeAllModals();
+                sound.init();
+
+                const config = SCENARIOS[this.selectedScenarioKey];
+                this.scenario = JSON.parse(JSON.stringify(config));
+                this.timeRemaining = this.scenario.timeLimit;
+                this.score = 0;
+                this.heldItem = null;
+                this.updateHeldItemHUD();
+
+                this.active = true;
+                this.activeEvent = null;
+
+                // Reset Telemetry
+                this.metrics = {
+                    startTime: Date.now(),
+                    endTime: 0,
+                    completedTasks: 0,
+                    mandatoryCompleted: 0,
+                    criticalCompletedEarly: 0,
+                    criticalDelayed: 0,
+                    failedInteractions: 0,
+                    totalInteractions: 0,
+                    delegationCount: 0,
+                    eventsResolved: 0,
+                    eventsMissed: 0
+                };
+
+                this.taskState = this.scenario.tasks;
+
+                // Update Top HUD
+                document.getElementById('hud-badge').innerText = this.scenario.badge;
+                document.getElementById('hud-name').innerText = this.scenario.name;
+                document.getElementById('hud-score').innerText = `${this.score} PTS`;
+                this.updateTimerDisplay();
+
+                // Build 3D World Props
+                this.buildScenarioEnvironment();
+
+                // Refresh Task lists (2D and VR)
+                this.renderTaskList();
+                this.updateVRTaskBoard();
+
+                // Comms
+                this.addCommsMsg(`[LEAD] ${this.scenario.name} initiated. Time remaining: ${this.formatTime(this.timeRemaining)}.`);
+                this.addCommsMsg(`[ECHO] Bot Echo standing by for item transports.`);
+                this.addCommsMsg(`[NOVA] Bot Nova monitoring power & technical junctions.`);
+
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.timerInterval = setInterval(() => this.tick(), 1000);
+
+                sound.playInteract();
+            }
+
+            tick() {
+                if (!this.active) return;
+
+                this.timeRemaining--;
+                this.updateTimerDisplay();
+
+                // Check for Emergency Crisis Events
+                this.checkScheduledEvents();
+
+                // Bot AI Update Step (Simulated Co-op Teammates)
+                this.updateBotSquad();
+
+                // 10s countdown audio
+                if (this.timeRemaining <= 10 && this.timeRemaining > 0) {
+                    sound.playCountdownTick();
+                }
+
+                // Time Out Check
+                if (this.timeRemaining <= 0) {
+                    this.endGame(false, "TIME EXPIRED - FACILITY MELTDOWN");
+                }
+            }
+
+            updateTimerDisplay() {
+                const formatted = this.formatTime(Math.max(0, this.timeRemaining));
+                const timerEl = document.getElementById('hud-timer');
+                timerEl.innerText = formatted;
+
+                const isUrgent = this.timeRemaining <= 30;
+                timerEl.classList.toggle('urgent', isUrgent);
+
+                // Update VR Wrist & Board Timers
+                const wristTimer = document.getElementById('wrist-timer');
+                if (wristTimer) wristTimer.setAttribute('value', formatted);
+
+                const vrBoardTimer = document.getElementById('vr-board-timer');
+                if (vrBoardTimer) vrBoardTimer.setAttribute('value', `TIME: ${formatted}`);
+            }
+
+            formatTime(seconds) {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+            }
+
+            /* ========================================================================
+               3D ENVIRONMENT GENERATION
+               ======================================================================== */
+            buildScenarioEnvironment() {
+                const container = document.getElementById('scenario-props-container');
+                container.innerHTML = '';
+
+                const theme = this.selectedScenarioKey;
+
+                if (theme === 'emergency_room') {
+                    container.innerHTML = `
+            <!-- Logistics Table with Access Card -->
+            <a-entity id="station_desk" position="-4 0 1">
+              <a-box position="0 0.45 0" width="1.6" height="0.9" depth="0.8" color="#1e293b" material="roughness:0.4; metalness:0.6"></a-box>
+              <a-text value="LOGISTICS DESK" align="center" position="0 1.2 0" color="#38bdf8" width="2.5"></a-text>
+            </a-entity>
+
+            <!-- 1. Master Keycard Pickup -->
+            <a-entity id="item_keycard" class="clickable grabbable item-pickup" data-item="keycard" position="-4 0.95 1">
+              <a-box width="0.18" height="0.02" depth="0.28" color="#facc15" material="emissive:#facc15; emissiveIntensity:0.6"></a-box>
+              <a-text value="[E] ACCESS CARD" align="center" position="0 0.25 0" color="#facc15" width="1.8"></a-text>
+            </a-entity>
+
+            <!-- 2. Central Security Blast Console -->
+            <a-entity id="station_security_terminal" class="clickable station-entity" data-station="station_security_terminal" position="-2 0 -5">
+              <a-cylinder height="1.1" radius="0.4" position="0 0.55 0" color="#0f172a"></a-cylinder>
+              <a-box id="keycard-slot-mesh" position="0 1.15 0" width="0.5" height="0.3" depth="0.2" color="#ef4444" material="emissive:#ef4444; emissiveIntensity:0.5"></a-box>
+              <a-text value="SECURITY TERMINAL" align="center" position="0 1.6 0" color="#ef4444" width="3"></a-text>
+            </a-entity>
+
+            <!-- 3. Backup Power Rack -->
+            <a-entity id="station_power_rack" class="clickable station-entity" data-station="station_power_rack" position="-4.5 0 -4">
+              <a-box position="0 1 0" width="1.2" height="2" depth="0.5" color="#1e293b"></a-box>
+              <a-cylinder id="power-lever" height="0.4" radius="0.05" position="0 1.2 0.3" rotation="45 0 0" color="#ef4444" material="emissive:#ef4444; emissiveIntensity:0.6"></a-cylinder>
+              <a-text value="POWER GRID BREAKER" align="center" position="0 2.2 0" color="#ef4444" width="3"></a-text>
+            </a-entity>
+
+            <!-- Quantum Capacitor Pickup -->
+            <a-entity id="item_capacitor" class="clickable grabbable item-pickup" data-item="capacitor" position="4 0.95 1">
+              <a-cylinder height="0.35" radius="0.09" position="0 0 0" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:0.8"></a-cylinder>
+              <a-text value="[E] QUANTUM CAPACITOR" align="center" position="0 0.35 0" color="#38bdf8" width="1.8"></a-text>
+            </a-entity>
+
+            <!-- 4. Quantum Junction Slot Station -->
+            <a-entity id="station_junction" class="clickable station-entity" data-station="station_junction" position="2 0 -5">
+              <a-box position="0 0.6 0" width="0.8" height="1.2" depth="0.5" color="#0f172a"></a-box>
+              <a-box id="junction-slot" position="0 1.2 0.26" width="0.3" height="0.3" depth="0.1" color="#3b82f6" material="emissive:#3b82f6; emissiveIntensity:0.4"></a-box>
+              <a-text value="JUNCTION RECEPTACLE" align="center" position="0 1.7 0" color="#38bdf8" width="3"></a-text>
+            </a-entity>
+
+            <!-- 5. Harmonic Lock Control Panel -->
+            <a-entity id="station_harmonic_puzzle" class="clickable station-entity" data-station="station_harmonic_puzzle" position="0 0 -5.5">
+              <a-box position="0 0.5 0" width="1.4" height="1" depth="0.6" color="#0f172a"></a-box>
+              <a-plane position="0 1.05 0" rotation="-30 0 0" width="1.2" height="0.5" color="#1e293b"></a-plane>
+              <a-text id="harmonic-counter-text" value="HARMONIC NODES: 0/3" align="center" position="0 1.5 0" color="#facc15" width="2.8"></a-text>
+            </a-entity>
+
+            <!-- 6. Satellite Comms Dish Station -->
+            <a-entity id="station_comms_dish" class="clickable station-entity" data-station="station_comms_dish" position="4.5 0 -4">
+              <a-cylinder height="1.2" radius="0.4" position="0 0.6 0" color="#0f172a"></a-cylinder>
+              <a-cone height="0.45" radius-bottom="0.5" radius-top="0.1" position="0 1.45 0" rotation="-45 0 0" color="#38bdf8"></a-cone>
+              <a-text value="COMMS RELAY" align="center" position="0 2.1 0" color="#38bdf8" width="3"></a-text>
+            </a-entity>
+
+            <!-- 7. Master Emergency Restore Console -->
+            <a-entity id="station_master_console" class="clickable station-entity" data-station="station_master_console" position="0 0 -2.5">
+              <a-box position="0 0.5 0" width="1" height="1" depth="0.8" color="#1e293b"></a-box>
+              <a-cylinder id="master-btn" height="0.1" radius="0.2" position="0 1.05 0" color="#ef4444" material="emissive:#ef4444; emissiveIntensity:0.7"></a-cylinder>
+              <a-text value="MASTER REBOOT CONSOLE" align="center" position="0 1.5 0" color="#f87171" width="3"></a-text>
+            </a-entity>
+
+            <!-- Event Station: Coolant Valve -->
+            <a-entity id="station_coolant_valve" class="clickable station-entity" data-station="station_coolant_valve" position="-4.5 0 3">
+              <a-cylinder height="0.9" radius="0.15" position="0 0.45 0" color="#475569"></a-cylinder>
+              <a-torus radius="0.22" radius-tubular="0.04" position="0 1 0" rotation="90 0 0" color="#f97316"></a-torus>
+              <a-text value="COOLANT VALVE" align="center" position="0 1.5 0" color="#94a3b8" width="2.5"></a-text>
+            </a-entity>
+
+            <!-- Event Station: Router Breaker -->
+            <a-entity id="station_router_breaker" class="clickable station-entity" data-station="station_router_breaker" position="4.5 0 3">
+              <a-box position="0 0.8 0" width="0.7" height="1.6" depth="0.3" color="#0f172a"></a-box>
+              <a-text value="ROUTER BREAKER" align="center" position="0 1.8 0" color="#94a3b8" width="2.5"></a-text>
+            </a-entity>
+          `;
+                }
+
+                this.bindSceneInteractions();
+            }
+
+            /* ========================================================================
+               INTERACTION DISPATCHER
+               ======================================================================== */
+            bindSceneInteractions() {
+                document.querySelectorAll('.item-pickup').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.handleItemPickup(el);
+                    });
+                });
+
+                document.querySelectorAll('.station-entity').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.handleStationInteract(el.dataset.station);
+                    });
+                });
+            }
+
+            handleItemPickup(el) {
+                if (!this.active) return;
+                const itemName = el.dataset.item;
+
+                if (this.heldItem) {
+                    this.addCommsMsg(`[LEAD] Hands occupied with ${this.heldItem.toUpperCase()}. Drop it with [G] first.`);
+                    sound.playTone(250, 'sawtooth', 0.1, 0.2);
+                    return;
+                }
+
+                this.heldItem = itemName;
+                sound.playPickup();
+                this.triggerHapticPulse(50, 0.6);
+                this.updateHeldItemHUD();
+
+                el.setAttribute('visible', 'false');
+                el.classList.remove('clickable');
+
+                this.metrics.totalInteractions++;
+                this.addCommsMsg(`[LEAD] Picked up ${itemName.toUpperCase()}.`);
+
+                // If picking up keycard, complete task 1
+                const t1 = this.taskState.find(t => t.id === "task_keycard" && t.status !== "completed");
+                if (t1) {
+                    this.completeTask(t1, 'player');
+                }
+            }
+
+            dropHeldItem() {
+                if (!this.heldItem) return;
+                const dropped = this.heldItem;
+                this.heldItem = null;
+                this.updateHeldItemHUD();
+                sound.playDrop();
+                this.triggerHapticPulse(30, 0.4);
+
+                const el = document.querySelector(`[data-item="${dropped}"]`);
+                if (el) {
+                    el.setAttribute('visible', 'true');
+                    el.classList.add('clickable');
+                }
+
+                this.addCommsMsg(`[LEAD] Dropped ${dropped.toUpperCase()}.`);
+            }
+
+            updateHeldItemHUD() {
+                const badge = document.getElementById('held-item-text');
+                const socket = document.getElementById('carried-item-socket');
+
+                if (this.heldItem) {
+                    badge.innerText = `HOLDING: ${this.heldItem.toUpperCase()}`;
+                    badge.style.color = "#38bdf8";
+                    badge.style.borderColor = "#38bdf8";
+                    if (socket) socket.setAttribute('visible', 'true');
+                } else {
+                    badge.innerText = `NONE (Empty Hands)`;
+                    badge.style.color = "#94a3b8";
+                    badge.style.borderColor = "rgba(255,255,255,0.2)";
+                    if (socket) socket.setAttribute('visible', 'false');
+                }
+            }
+
+            handleStationInteract(stationId) {
+                if (!this.active) return;
+                this.metrics.totalInteractions++;
+                this.triggerHapticPulse(40, 0.5);
+
+                // 1. Check for Active Crisis Event at this station
+                if (this.activeEvent && this.activeEvent.stationId === stationId) {
+                    this.resolveEvent(true);
+                    return;
+                }
+
+                // 2. Find matching task
+                const task = this.taskState.find(t => t.stationId === stationId && t.status !== 'completed');
+                if (!task) {
+                    this.addCommsMsg(`[OPS] No active objective pending at this station.`);
+                    sound.playTone(220, 'sawtooth', 0.1, 0.15);
+                    return;
+                }
+
+                if (task.status === 'locked') {
+                    this.addCommsMsg(`[OPS] Locked! Prerequisite tasks must be cleared first.`);
+                    sound.playTone(220, 'sawtooth', 0.1, 0.15);
+                    return;
+                }
+
+                this.processTaskInteraction(task, 'player');
+            }
+
+            processTaskInteraction(task, agent = 'player') {
+                if (task.type === 'deliver') {
+                    if (agent === 'player') {
+                        if (this.heldItem !== task.itemNeeded) {
+                            this.metrics.failedInteractions++;
+                            this.addCommsMsg(`[LEAD] Station requires: ${task.itemNeeded.toUpperCase()}.`);
+                            sound.playTone(200, 'sawtooth', 0.15, 0.2);
+                            return;
+                        }
+                        this.heldItem = null;
+                        this.updateHeldItemHUD();
+                    }
+                } else if (task.type === 'toggle_multi') {
+                    task.currentCount = (task.currentCount || 0) + 1;
+                    const counterEl = document.getElementById('harmonic-counter-text');
+                    if (counterEl) counterEl.setAttribute('value', `HARMONIC NODES: ${task.currentCount}/3`);
+
+                    if (task.currentCount < task.targetCount) {
+                        sound.playInteract();
+                        this.addCommsMsg(`[${agent.toUpperCase()}] Harmonic node tuned: ${task.currentCount}/${task.targetCount}.`);
+                        this.renderTaskList();
+                        return;
+                    }
+                }
+
+                this.completeTask(task, agent);
+            }
+
+            completeTask(task, agent = 'player') {
+                task.status = 'completed';
+                task.completedBy = agent;
+
+                // Visual feedback updates on 3D meshes
+                if (task.id === 'task_unlock') {
+                    const mesh = document.getElementById('keycard-slot-mesh');
+                    if (mesh) { mesh.setAttribute('color', '#10b981'); mesh.setAttribute('material', 'emissive:#10b981; emissiveIntensity:0.8'); }
+                } else if (task.id === 'task_power') {
+                    const lever = document.getElementById('power-lever');
+                    if (lever) { lever.setAttribute('rotation', '-45 0 0'); lever.setAttribute('color', '#10b981'); }
+                } else if (task.id === 'task_component') {
+                    const junc = document.getElementById('junction-slot');
+                    if (junc) { junc.setAttribute('color', '#10b981'); junc.setAttribute('material', 'emissive:#10b981; emissiveIntensity:0.8'); }
+                } else if (task.id === 'task_restore') {
+                    const btn = document.getElementById('master-btn');
+                    if (btn) { btn.setAttribute('color', '#10b981'); btn.setAttribute('position', '0 1.0 0'); }
+                }
+
+                // Scoring calculation
+                let taskScore = task.score;
+                if (task.priority === 'critical' && this.timeRemaining >= (this.scenario.timeLimit * 0.5)) {
+                    taskScore += 35;
+                    this.metrics.criticalCompletedEarly++;
+                } else if (task.priority === 'critical' && this.timeRemaining <= 20) {
+                    this.metrics.criticalDelayed++;
+                }
+
+                this.score += taskScore;
+                document.getElementById('hud-score').innerText = `${this.score} PTS`;
+
+                const wristScore = document.getElementById('wrist-score');
+                if (wristScore) wristScore.setAttribute('value', `${this.score} PTS`);
+
+                this.metrics.completedTasks++;
+                if (task.mandatory) this.metrics.mandatoryCompleted++;
+
+                sound.playTaskComplete();
+                this.addCommsMsg(`[${agent.toUpperCase()}] OBJECTIVE COMPLETE: ${task.name} (+${taskScore} PTS)!`);
+
+                // Unlock dependent tasks
+                this.taskState.forEach(t => {
+                    if (t.status === 'locked' && t.dependsOn) {
+                        const allMet = t.dependsOn.every(depId => {
+                            const depTask = this.taskState.find(x => x.id === depId);
+                            return depTask && depTask.status === 'completed';
+                        });
+                        if (allMet) {
+                            t.status = 'pending';
+                            this.addCommsMsg(`[SYSTEM] Objective Unlocked: ${t.name}!`);
+                        }
+                    }
+                });
+
+                this.renderTaskList();
+                this.updateVRTaskBoard();
+
+                // Win Condition Check
+                const pendingMandatory = this.taskState.filter(t => t.mandatory && t.status !== 'completed');
+                if (pendingMandatory.length === 0) {
+                    setTimeout(() => this.endGame(true, "ALL SYSTEMS RESTORED - MISSION SUCCESS"), 800);
+                }
+            }
+
+            /* ========================================================================
+               AI TEAMMATE DELEGATION & PARALLEL WORK
+               ======================================================================== */
+            delegateToBot(botName) {
+                if (!this.active) return;
+                const bot = this.team[botName];
+                if (!bot) return;
+
+                if (bot.status === 'busy') {
+                    this.addCommsMsg(`[${bot.name.toUpperCase()}] Busy processing: ${bot.activeTask.name}.`);
+                    sound.playTone(300, 'sawtooth', 0.1, 0.15);
+                    return;
+                }
+
+                // Find available unlocked pending task
+                const availableTask = this.taskState.find(t => t.status === 'pending' && (!t.assignedTo || t.assignedTo === botName));
+                if (!availableTask) {
+                    this.addCommsMsg(`[${bot.name.toUpperCase()}] No assignable tasks pending.`);
+                    return;
+                }
+
+                availableTask.assignedTo = botName;
+                bot.activeTask = availableTask;
+                bot.status = 'busy';
+                bot.progress = 0;
+                this.metrics.delegationCount++;
+
+                this.addCommsMsg(`[${bot.name.toUpperCase()}] Dispatched to: ${availableTask.name}.`);
+                sound.playInteract();
+
+                document.getElementById(`bot-${botName}-task`).innerText = availableTask.name;
+                document.getElementById(`bot-${botName}-dot`).className = "member-status-dot busy";
+
+                this.renderTaskList();
+            }
+
+            updateBotSquad() {
+                ['echo', 'nova'].forEach(botKey => {
+                    const bot = this.team[botKey];
+                    if (bot.status === 'busy' && bot.activeTask) {
+                        bot.progress += (100 / (bot.activeTask.duration || 4));
+
+                        if (bot.progress >= 100) {
+                            const task = bot.activeTask;
+                            bot.activeTask = null;
+                            bot.status = 'idle';
+                            bot.progress = 0;
+                            document.getElementById(`bot-${botKey}-task`).innerText = "Standing By";
+                            document.getElementById(`bot-${botKey}-dot`).className = "member-status-dot";
+
+                            this.processTaskInteraction(task, bot.name);
+                        }
+                    }
+                });
+            }
+
+            /* ========================================================================
+               TACTICAL SQUAD PING SYSTEM
+               ======================================================================== */
+            triggerPing() {
+                if (!this.active) return;
+                sound.playPing();
+
+                const pendingTask = this.taskState.find(t => t.status === 'pending');
+                if (!pendingTask) return;
+
+                this.addCommsMsg(`[LEAD PING] Priority target marked: ${pendingTask.name}!`);
+
+                const stationEl = document.getElementById(pendingTask.stationId);
+                const beacon = document.getElementById('ping-beacon-container');
+
+                if (stationEl && beacon) {
+                    const pos = stationEl.getAttribute('position');
+                    beacon.setAttribute('position', `${pos.x} ${pos.y + 1} ${pos.z}`);
+                    beacon.setAttribute('visible', 'true');
+
+                    setTimeout(() => {
+                        beacon.setAttribute('visible', 'false');
+                    }, 4000);
+                }
+            }
+
+            /* ========================================================================
+               VR CONTROLLER HAPTICS
+               ======================================================================== */
+            triggerHapticPulse(duration = 50, intensity = 0.5) {
+                if (navigator.getGamepads) {
+                    const gamepads = navigator.getGamepads();
+                    for (let i = 0; i < gamepads.length; i++) {
+                        const gp = gamepads[i];
+                        if (gp && gp.hapticActuators && gp.hapticActuators.length > 0) {
+                            gp.hapticActuators[0].pulse(intensity, duration);
+                        }
+                    }
+                }
+            }
+
+            /* ========================================================================
+               EMERGENCY RANDOM EVENTS
+               ======================================================================== */
+            checkScheduledEvents() {
+                if (this.activeEvent || !this.scenario.events) return;
+
+                const event = this.scenario.events.find(ev => ev.triggerTime === this.timeRemaining);
+                if (event) {
+                    this.triggerEvent(event);
+                }
+            }
+
+            triggerEvent(event) {
+                this.activeEvent = event;
+                sound.playCriticalAlert();
+                this.triggerHapticPulse(200, 1.0);
+
+                const toast = document.getElementById('event-toast');
+                document.getElementById('event-toast-title').innerText = event.name.toUpperCase();
+                document.getElementById('event-toast-desc').innerText = `${event.desc} (${event.timeout}s)`;
+                toast.classList.add('show');
+
+                this.addCommsMsg(`[CRISIS] ${event.name}: ${event.desc}`, true);
+
+                if (this.eventTimeoutTimer) clearTimeout(this.eventTimeoutTimer);
+                this.eventTimeoutTimer = setTimeout(() => {
+                    if (this.activeEvent === event) {
+                        this.resolveEvent(false);
+                    }
+                }, event.timeout * 1000);
+            }
+
+            resolveEvent(success) {
+                const toast = document.getElementById('event-toast');
+                toast.classList.remove('show');
+
+                if (this.eventTimeoutTimer) clearTimeout(this.eventTimeoutTimer);
+
+                const ev = this.activeEvent;
+                if (!ev) return;
+
+                if (success) {
+                    this.score += ev.bonus;
+                    document.getElementById('hud-score').innerText = `${this.score} PTS`;
+                    this.metrics.eventsResolved++;
+                    sound.playTaskComplete();
+                    this.addCommsMsg(`[LEAD] Crisis Event '${ev.name}' STABILIZED (+${ev.bonus} PTS)!`);
+                } else {
+                    this.score = Math.max(0, this.score + ev.penalty);
+                    document.getElementById('hud-score').innerText = `${this.score} PTS`;
+                    this.metrics.eventsMissed++;
+                    sound.playTone(180, 'sawtooth', 0.4, 0.25);
+                    this.addCommsMsg(`[FAILURE] Crisis '${ev.name}' TIMED OUT (${ev.penalty} PTS PENALTY)!`, true);
+                }
+
+                this.activeEvent = null;
+            }
+
+            /* ========================================================================
+               HUD RENDERING
+               ======================================================================== */
+            renderTaskList() {
+                const container = document.getElementById('task-list-container');
+                container.innerHTML = '';
+
+                const completedCount = this.taskState.filter(t => t.status === 'completed').length;
+                document.getElementById('task-completion-ratio').innerText = `${completedCount}/${this.taskState.length} Done`;
+
+                this.taskState.forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = `task-card ${task.priority} ${task.status === 'completed' ? 'completed' : ''}`;
+
+                    let statusLabel = task.priority.toUpperCase();
+                    if (task.status === 'completed') statusLabel = 'DONE ✓';
+                    else if (task.status === 'locked') statusLabel = 'LOCKED 🔒';
+                    else if (task.assignedTo) statusLabel = `ASSIGNED: ${task.assignedTo.toUpperCase()}`;
+
+                    card.innerHTML = `
+            <div class="task-card-top">
+              <span class="task-name">${task.name}</span>
+              <span class="task-badge ${task.priority}">${statusLabel}</span>
+            </div>
+            <div class="task-desc">${task.desc}</div>
+            <div class="task-meta-row">
+              <span>Station: ${task.stationId.replace('station_', '').toUpperCase()}</span>
+              <span>+${task.score} pts ${task.mandatory ? '• MANDATORY' : '• OPTIONAL'}</span>
+            </div>
+          `;
+                    container.appendChild(card);
+                });
+            }
+
+            updateVRTaskBoard() {
+                const vrContainer = document.getElementById('vr-task-entries');
+                if (!vrContainer) return;
+                vrContainer.innerHTML = '';
+
+                this.taskState.slice(0, 6).forEach((task, idx) => {
+                    const yPos = -idx * 0.2;
+                    const isDone = task.status === 'completed';
+                    const color = isDone ? '#10b981' : (task.priority === 'critical' ? '#ef4444' : '#38bdf8');
+                    const prefix = isDone ? '[✓]' : (task.status === 'locked' ? '[🔒]' : '[ ]');
+
+                    vrContainer.innerHTML += `
+            <a-text value="${prefix} ${task.name}" position="-1.45 ${yPos} 0" color="${color}" width="2.6" font="roboto"></a-text>
+          `;
+                });
+            }
+
+            addCommsMsg(msg, isAlert = false) {
+                const log = document.getElementById('comms-log-container');
+                const entry = document.createElement('div');
+                entry.className = `comms-msg ${isAlert ? 'alert' : ''}`;
+                entry.innerText = msg;
+                log.appendChild(entry);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            /* ========================================================================
+               END GAME & ANALYTICS
+               ======================================================================== */
+            endGame(success, reason) {
+                this.active = false;
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                if (this.eventTimeoutTimer) clearTimeout(this.eventTimeoutTimer);
+
+                this.metrics.endTime = Date.now();
+
+                if (success) sound.playVictory();
+                else sound.playDefeat();
+
+                const timeRatio = Math.max(0, this.timeRemaining) / this.scenario.timeLimit;
+                const timeScore = Math.round(timeRatio * 250);
+
+                let priorityScore = 150;
+                if (this.metrics.criticalCompletedEarly > 0) priorityScore += 80;
+                if (this.metrics.criticalDelayed > 0) priorityScore -= 40;
+                priorityScore = Math.min(250, Math.max(50, priorityScore));
+
+                let teamScore = 120 + (this.metrics.delegationCount * 25);
+                if (this.metrics.eventsResolved > 0) teamScore += 30;
+                teamScore = Math.min(200, Math.max(40, teamScore));
+
+                let effScore = 150 - (this.metrics.failedInteractions * 20);
+                effScore = Math.min(150, Math.max(30, effScore));
+
+                const totalCalc = Math.min(1000, timeScore + priorityScore + teamScore + effScore + (this.metrics.mandatoryCompleted * 25));
+
+                document.getElementById('results-title').innerText = success ? "MISSION ACCOMPLISHED" : "MISSION FAILED";
+                document.getElementById('results-status').innerText = reason;
+                document.getElementById('res-total-score').innerText = `${totalCalc} / 1000`;
+
+                const gradeEl = document.getElementById('res-overall-grade');
+                if (totalCalc >= 850) { gradeEl.innerText = "EXCELLENT"; gradeEl.className = "grade-a"; }
+                else if (totalCalc >= 700) { gradeEl.innerText = "GOOD"; gradeEl.className = "grade-b"; }
+                else if (totalCalc >= 550) { gradeEl.innerText = "SATISFACTORY"; gradeEl.className = "grade-c"; }
+                else { gradeEl.innerText = "SUB-OPTIMAL"; gradeEl.className = "grade-d"; }
+
+                document.getElementById('res-time-score').innerText = `${timeScore} / 250`;
+                document.getElementById('res-priority-score').innerText = `${priorityScore} / 250`;
+                document.getElementById('res-team-score').innerText = `${teamScore} / 200`;
+                document.getElementById('res-eff-score').innerText = `${effScore} / 150`;
+
+                const posList = document.getElementById('feedback-positives');
+                const negList = document.getElementById('feedback-negatives');
+                posList.innerHTML = '';
+                negList.innerHTML = '';
+
+                if (timeRatio > 0.35) {
+                    posList.innerHTML += `<li>Paced execution: Mission completed with ${this.formatTime(this.timeRemaining)} remaining on countdown.</li>`;
+                }
+                if (this.metrics.criticalCompletedEarly > 0) {
+                    posList.innerHTML += `<li>Critical bottleneck power systems restored early in the crisis.</li>`;
+                }
+                if (this.metrics.delegationCount > 0) {
+                    posList.innerHTML += `<li>High co-op efficiency: Tasks successfully delegated to bot squadmates.</li>`;
+                }
+                if (this.metrics.eventsResolved > 0) {
+                    posList.innerHTML += `<li>Successfully countered emergency disruption events without losing focus.</li>`;
+                }
+
+                if (this.metrics.criticalDelayed > 0) {
+                    negList.innerHTML += `<li>Critical tasks were delayed until late in the countdown.</li>`;
+                }
+                if (this.metrics.failedInteractions > 1) {
+                    negList.innerHTML += `<li>${this.metrics.failedInteractions} failed interaction attempts recorded (wrong items brought to stations).</li>`;
+                }
+                if (this.metrics.delegationCount === 0) {
+                    negList.innerHTML += `<li>Zero squad delegations used. Multi-tasking reduces completion time.</li>`;
+                }
+                if (this.metrics.eventsMissed > 0) {
+                    negList.innerHTML += `<li>Emergency crisis alert timed out before resolution, incurring penalties.</li>`;
+                }
+
+                if (posList.children.length === 0) posList.innerHTML = `<li>Basic objectives attempted under pressure.</li>`;
+                if (negList.children.length === 0) negList.innerHTML = `<li>Flawless tactical teamwork and priority execution!</li>`;
+
+                openModal('modal-results');
+            }
+        }
+
+        const game = new SynergyGameEngine();
+
+        /* ==========================================================================
+           MODAL CONTROLLERS & KEYBOARD BINDINGS
+           ========================================================================== */
+        function openModal(id) {
+            closeAllModals();
+            const m = document.getElementById(id);
+            if (m) m.classList.add('active');
+        }
+
+        function closeModal(id) {
+            const m = document.getElementById(id);
+            if (m) m.classList.remove('active');
+        }
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('active'));
+        }
+
+        function selectScenario(key) {
+            game.selectScenario(key);
+        }
+
+        function startBriefing() {
+            game.openBriefing();
+        }
+
+        function launchScenario() {
+            game.start();
+        }
+
+        function restartCurrentScenario() {
+            game.start();
+        }
+
+        function triggerSquadPing() {
+            game.triggerPing();
+        }
+
+        // Direct raycast interaction for on-screen click or 'E' key
+        function triggerInteractAction() {
+            if (!game.active) return;
+
+            // Check raycaster intersection from camera
+            const raycasterEl = document.getElementById('camera-raycaster');
+            if (raycasterEl && raycasterEl.components.raycaster) {
+                const intersectedEls = raycasterEl.components.raycaster.intersectedEls;
+                if (intersectedEls && intersectedEls.length > 0) {
+                    const target = intersectedEls[0];
+                    if (target.classList.contains('item-pickup')) {
+                        game.handleItemPickup(target);
+                        return;
+                    } else if (target.classList.contains('station-entity')) {
+                        game.handleStationInteract(target.dataset.station);
+                        return;
+                    }
+                }
+            }
+
+            // Proximity fallback check (if within 2.5m of any interactable)
+            const rig = document.getElementById('player-rig');
+            if (rig) {
+                const pPos = rig.getAttribute('position');
+                const stations = document.querySelectorAll('.station-entity, .item-pickup');
+                for (let el of stations) {
+                    if (el.getAttribute('visible') === false) continue;
+                    const pos = el.getAttribute('position');
+                    const dist = Math.hypot(pPos.x - pos.x, pPos.z - pos.z);
+                    if (dist < 3.2) {
+                        if (el.classList.contains('item-pickup')) {
+                            game.handleItemPickup(el);
+                            return;
+                        } else if (el.classList.contains('station-entity')) {
+                            game.handleStationInteract(el.dataset.station);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            game.addCommsMsg(`[LEAD] Walk closer or aim crosshair directly at an object to interact.`);
+        }
+
+        document.getElementById('audio-toggle-btn').addEventListener('click', () => {
+            const enabled = sound.toggle();
+            document.getElementById('audio-toggle-btn').innerText = enabled ? '🔊 AUDIO: ON' : '🔇 AUDIO: OFF';
+        });
+
+        document.getElementById('menu-btn').addEventListener('click', () => {
+            openModal('modal-menu');
+        });
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'g' || e.key === 'G') {
+                game.dropHeldItem();
+            } else if (e.key === 'e' || e.key === 'E') {
+                triggerInteractAction();
+            } else if (e.key === '1') {
+                game.delegateToBot('echo');
+            } else if (e.key === '2') {
+                game.delegateToBot('nova');
+            } else if (e.key === 'q' || e.key === 'Q') {
+                triggerSquadPing();
+            } else if (e.key === 'c' || e.key === 'C') {
+                openModal('modal-controls');
+            } else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+                openModal('modal-menu');
+            }
+        });
+
+        // Sprint speed booster (Hold shift)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') {
+                const rig = document.getElementById('player-rig');
+                if (rig) rig.setAttribute('movement-controls', 'fly: false; speed: 0.28');
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') {
+                const rig = document.getElementById('player-rig');
+                if (rig) rig.setAttribute('movement-controls', 'fly: false; speed: 0.16');
+            }
+        });
+
+        // Quest 3S Controller button bindings (A, B, X, Y)
+        document.addEventListener('DOMContentLoaded', () => {
+            const crosshair = document.getElementById('crosshair');
+            const scene = document.querySelector('a-scene');
+
+            if (scene) {
+                scene.addEventListener('raycaster-intersected', () => {
+                    if (crosshair) crosshair.classList.add('hovered');
+                });
+                scene.addEventListener('raycaster-intersected-cleared', () => {
+                    if (crosshair) crosshair.classList.remove('hovered');
+                });
+            }
+
+            // Controller grip / trigger events for Quest 3S
+            const rightHand = document.getElementById('right-hand');
+            const leftHand = document.getElementById('left-hand');
+
+            [rightHand, leftHand].forEach(hand => {
+                if (!hand) return;
+                hand.addEventListener('gripdown', () => {
+                    triggerInteractAction();
+                });
+                hand.addEventListener('abuttondown', () => {
+                    triggerSquadPing();
+                });
+                hand.addEventListener('bbuttondown', () => {
+                    game.dropHeldItem();
+                });
+                hand.addEventListener('xbuttondown', () => {
+                    game.delegateToBot('echo');
+                });
+                hand.addEventListener('ybuttondown', () => {
+                    game.delegateToBot('nova');
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
